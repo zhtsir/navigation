@@ -1,0 +1,18 @@
+<package>
+  <description brief="rotate_recovery">
+
+     rotate_recovery
+
+  </description>
+  <author>Eitan Marder-Eppstein</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/rotate_recovery</url>
+  <depend package="roscpp"/>
+  <depend package="nav_core"/>
+  <depend package="tf"/>
+  <depend package="costmap_2d"/>
+
+</package>
+
+
