@@ -95,11 +95,14 @@ void RotateRecovery::runBehavior(){
 
   double current_angle = -1.0 * M_PI;
 
-  double start_angle = angles::normalize_angle(tf::getYaw(global_pose.getRotation()));
-  while(n.ok() && current_angle < M_PI){
+  bool got_180 = false;
+
+  double start_offset = 0 - angles::normalize_angle(tf::getYaw(global_pose.getRotation()));
+  while(n.ok()){
     global_costmap_->getRobotPose(global_pose);
 
-    current_angle = angles::normalize_angle(tf::getYaw(global_pose.getRotation())) - start_angle - M_PI;
+    double norm_angle = angles::normalize_angle(tf::getYaw(global_pose.getRotation()));
+    current_angle = angles::normalize_angle(norm_angle + start_offset);
 
     //compute the distance left to rotate
     double dist_left = M_PI - current_angle;
@@ -139,8 +142,12 @@ void RotateRecovery::runBehavior(){
 
     vel_pub.publish(cmd_vel);
 
+    //makes sure that we won't decide we're done right after we start
+    if(current_angle < 0.0)
+      got_180 = true;
+
     //if we're done with our in-place rotation... then return
-    if(current_angle >= (M_PI - tolerance_))
+    if(got_180 && current_angle >= (0.0 - tolerance_))
       return;
 
     r.sleep();
