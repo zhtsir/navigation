@@ -58,7 +58,7 @@ namespace nav_core {
       virtual void runBehavior() = 0;
 
     protected:
-      RecoveryBehavior();
+      RecoveryBehavior(){}
   };
 };
 #endif

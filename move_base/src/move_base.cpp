@@ -543,7 +543,7 @@ namespace move_base {
       //we'll try to clear out space with any user-provided recovery behaviors
       case CLEARING:
         //we'll invoke whatever recovery behavior we're currently on if they're enabled
-        if(recovery_behavior_enabled_ || recovery_index_ < recovery_behaviors_.size()){
+        if(recovery_behavior_enabled_ && recovery_index_ < recovery_behaviors_.size()){
           recovery_behaviors_[recovery_index_]->runBehavior();
 
           //we'll check if the recovery behavior actually worked
@@ -640,8 +640,24 @@ namespace move_base {
     return true;
   }
 
+  //we'll load our default recovery behaviors here
   void MoveBase::loadDefaultRecoveryBehaviors(){
-    //we'll load our default recovery behaviors here
+    recovery_behaviors_.clear();
+    try{
+      //first, we'll load a recovery behavior to clear the costmap
+      boost::shared_ptr<nav_core::RecoveryBehavior> cons_clear(recovery_loader_.createClassInstance("ClearCostmapRecovery"));
+      cons_clear->initialize("conservative_reset", &tf_, planner_costmap_ros_, controller_costmap_ros_);
+      recovery_behaviors_.push_back(cons_clear);
+
+      //next, we'll load a recovery behavior to rotate in place
+      boost::shared_ptr<nav_core::RecoveryBehavior> rotate(recovery_loader_.createClassInstance("RotateRecovery"));
+      rotate->initialize("rotate_recovery", &tf_, planner_costmap_ros_, controller_costmap_ros_);
+      recovery_behaviors_.push_back(rotate);
+    }
+    catch(pluginlib::PluginlibException& ex){
+      ROS_FATAL("Failed to load a plugin. This should not happen on default recovery behaviors. Error: %s", ex.what());
+    }
+
     return;
   }
 
