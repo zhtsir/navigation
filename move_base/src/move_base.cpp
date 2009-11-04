@@ -644,6 +644,11 @@ namespace move_base {
   void MoveBase::loadDefaultRecoveryBehaviors(){
     recovery_behaviors_.clear();
     try{
+      //we need to set some parameters based on what's been passed in to us to maintain backwards compatibility
+      ros::NodeHandle n("~");
+      n.setParam("conservative_reset/reset_distance", conservative_reset_dist_);
+      n.setParam("aggressive_reset/reset_distance", circumscribed_radius_ * 2);
+
       //first, we'll load a recovery behavior to clear the costmap
       boost::shared_ptr<nav_core::RecoveryBehavior> cons_clear(recovery_loader_.createClassInstance("ClearCostmapRecovery"));
       cons_clear->initialize("conservative_reset", &tf_, planner_costmap_ros_, controller_costmap_ros_);
@@ -653,6 +658,11 @@ namespace move_base {
       boost::shared_ptr<nav_core::RecoveryBehavior> rotate(recovery_loader_.createClassInstance("RotateRecovery"));
       rotate->initialize("rotate_recovery", &tf_, planner_costmap_ros_, controller_costmap_ros_);
       recovery_behaviors_.push_back(rotate);
+
+      //next, we'll load a recovery behavior that will do an aggressive reset of the costmap
+      boost::shared_ptr<nav_core::RecoveryBehavior> ags_clear(recovery_loader_.createClassInstance("ClearCostmapRecovery"));
+      ags_clear->initialize("aggressive_reset", &tf_, planner_costmap_ros_, controller_costmap_ros_);
+      recovery_behaviors_.push_back(ags_clear);
     }
     catch(pluginlib::PluginlibException& ex){
       ROS_FATAL("Failed to load a plugin. This should not happen on default recovery behaviors. Error: %s", ex.what());
