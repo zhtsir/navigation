@@ -571,6 +571,7 @@ namespace costmap_2d {
 
 
   void Costmap2DROS::updateMap(){
+    ROS_DEBUG_NAMED ("update_map", "Updating costmap");
     tf::Stamped<tf::Pose> global_pose;
     if(!getRobotPose(global_pose))
       return;
@@ -637,7 +638,8 @@ namespace costmap_2d {
     lock_.unlock();
 
     //make sure to force an update of the map to take in the latest sensor data
-    updateMap();
+    if (!stop_updates_)
+      updateMap();
   }
 
   void Costmap2DROS::resetMapOutsideWindow(double size_x, double size_y){
@@ -653,7 +655,8 @@ namespace costmap_2d {
     lock_.unlock();
 
     //make sure to force an update of the map to take in the latest sensor data
-    updateMap();
+    if (!stop_updates_)
+      updateMap();
 
   }
 
@@ -826,7 +829,8 @@ namespace costmap_2d {
     lock_.unlock();
 
     //make sure to take our active sensor data into account
-    updateMap();
+    if (!stop_updates_)
+      updateMap();
 
     return success;
   }
