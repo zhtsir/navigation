@@ -222,9 +222,13 @@ namespace costmap_2d {
               boost::bind(&Costmap2DROS::laserScanCallback, this, _1, observation_buffers_.back()), topic, global_frame_, 50)));
         observation_notifiers_.back()->setTolerance(ros::Duration(0.05));
       }
-      else{
+      else if(data_type == "PointCloud"){
         observation_notifiers_.push_back(boost::shared_ptr<MessageNotifierBase>(new MessageNotifier<sensor_msgs::PointCloud>(tf_,
               boost::bind(&Costmap2DROS::pointCloudCallback, this, _1, observation_buffers_.back()), topic, global_frame_, 50)));
+      }
+      else{
+        observation_notifiers_.push_back(boost::shared_ptr<MessageNotifierBase>(new MessageNotifier<sensor_msgs::PointCloud2>(tf_,
+              boost::bind(&Costmap2DROS::pointCloud2Callback, this, _1, observation_buffers_.back()), topic, global_frame_, 50)));
       }
 
       if(sensor_frame != ""){
@@ -511,6 +515,13 @@ namespace costmap_2d {
   }
 
   void Costmap2DROS::pointCloudCallback(const MessageNotifier<sensor_msgs::PointCloud>::MessagePtr& message, const boost::shared_ptr<ObservationBuffer>& buffer){
+    //buffer the point cloud
+    buffer->lock();
+    buffer->bufferCloud(*message);
+    buffer->unlock();
+  }
+
+  void Costmap2DROS::pointCloud2Callback(const MessageNotifier<sensor_msgs::PointCloud>::MessagePtr& message, const boost::shared_ptr<ObservationBuffer>& buffer){
     //buffer the point cloud
     buffer->lock();
     buffer->bufferCloud(*message);

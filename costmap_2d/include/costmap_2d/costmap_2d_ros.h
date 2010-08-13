@@ -61,6 +61,11 @@
 
 #include <sensor_msgs/PointCloud.h>
 
+//Support for PointCloud2 messages
+#include <sensor_msgs/PointCloud2.h>
+#include <pcl/point_types.h>
+#include <pcl/ros/conversions.h>
+
 // Thread suppport
 #include <boost/thread.hpp>
 #include <boost/shared_ptr.hpp>
@@ -328,6 +333,13 @@ namespace costmap_2d {
        * @param buffer A pointer to the observation buffer to update
        */
       void pointCloudCallback(const MessageNotifier<sensor_msgs::PointCloud>::MessagePtr& message, const boost::shared_ptr<ObservationBuffer>& buffer);
+
+      /**
+       * @brief  A callback to handle buffering PointCloud2 messages
+       * @param message The message returned from a message notifier 
+       * @param buffer A pointer to the observation buffer to update
+       */
+      void pointCloud2Callback(const MessageNotifier<sensor_msgs::PointCloud2>::MessagePtr& message, const boost::shared_ptr<ObservationBuffer>& buffer);
 
       /**
        * @brief  The loop that handles updating the costmap
