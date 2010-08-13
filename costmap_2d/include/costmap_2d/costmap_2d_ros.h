@@ -63,8 +63,6 @@
 
 //Support for PointCloud2 messages
 #include <sensor_msgs/PointCloud2.h>
-#include <pcl/point_types.h>
-#include <pcl/ros/conversions.h>
 
 // Thread suppport
 #include <boost/thread.hpp>

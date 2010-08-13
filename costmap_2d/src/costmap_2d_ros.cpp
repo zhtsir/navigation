@@ -35,6 +35,7 @@
  * Author: Eitan Marder-Eppstein
  *********************************************************************/
 #include <costmap_2d/costmap_2d_ros.h>
+#include <sensor_msgs/point_cloud_conversion.h>
 
 #include <limits>
 
@@ -494,34 +495,48 @@ namespace costmap_2d {
 
   void Costmap2DROS::laserScanCallback(const MessageNotifier<sensor_msgs::LaserScan>::MessagePtr& message, const boost::shared_ptr<ObservationBuffer>& buffer){
     //project the laser into a point cloud
-    sensor_msgs::PointCloud base_cloud;
-    base_cloud.header = message->header;
+    sensor_msgs::PointCloud cloud;
+    cloud.header = message->header;
 
     //project the scan into a point cloud
     try
     {
-      projector_.transformLaserScanToPointCloud(message->header.frame_id, *message, base_cloud, tf_);
+      projector_.transformLaserScanToPointCloud(message->header.frame_id, *message, cloud, tf_);
     }
     catch (tf::TransformException &ex)
     {
       ROS_WARN ("High fidelity enabled, but TF returned a transform exception to frame %s: %s", global_frame_.c_str (), ex.what ());
-      projector_.projectLaser(*message, base_cloud);
+      projector_.projectLaser(*message, cloud);
+    }
+
+    //TODO: Switch to use new laser projector when it is ready to skip PointCloud
+    sensor_msgs::PointCloud2 cloud2;
+    if(!sensor_msgs::convertPointCloudToPointCloud2(cloud, cloud2)){
+      ROS_ERROR("Failed to convert a PointCloud to a PointCloud2, dropping message");
+      return;
     }
 
     //buffer the point cloud
     buffer->lock();
-    buffer->bufferCloud(base_cloud);
+    buffer->bufferCloud(cloud2);
     buffer->unlock();
   }
 
   void Costmap2DROS::pointCloudCallback(const MessageNotifier<sensor_msgs::PointCloud>::MessagePtr& message, const boost::shared_ptr<ObservationBuffer>& buffer){
+    sensor_msgs::PointCloud2 cloud2;
+
+    if(!sensor_msgs::convertPointCloudToPointCloud2(*message, cloud2)){
+      ROS_ERROR("Failed to convert a PointCloud to a PointCloud2, dropping message");
+      return;
+    }
+
     //buffer the point cloud
     buffer->lock();
-    buffer->bufferCloud(*message);
+    buffer->bufferCloud(cloud2);
     buffer->unlock();
   }
 
-  void Costmap2DROS::pointCloud2Callback(const MessageNotifier<sensor_msgs::PointCloud>::MessagePtr& message, const boost::shared_ptr<ObservationBuffer>& buffer){
+  void Costmap2DROS::pointCloud2Callback(const MessageNotifier<sensor_msgs::PointCloud2>::MessagePtr& message, const boost::shared_ptr<ObservationBuffer>& buffer){
     //buffer the point cloud
     buffer->lock();
     buffer->bufferCloud(*message);
