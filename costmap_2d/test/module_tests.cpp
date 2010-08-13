@@ -101,8 +101,8 @@ TEST(costmap, testResetForStaticMap){
   Costmap2D map(10, 10, RESOLUTION, 0.0, 0.0, 3, 3, 3, OBSTACLE_RANGE, MAX_Z, RAYTRACE_RANGE, 25, staticMap, THRESHOLD);
 
   // Populate the cost map with a wall around the perimeter. Free space should clear out the room.
-  sensor_msgs::PointCloud cloud;
-  cloud.set_points_size(40);
+  pcl::PointCloud<pcl::PointXYZW> cloud;
+  cloud.points.resize(40);
 
   // Left wall
   unsigned int ind = 0;
@@ -193,8 +193,8 @@ TEST(costmap, testCostFunctionCorrectness){
   ASSERT_EQ(map.getCircumscribedCost(), c);
 
   // Add a point in the center
-  sensor_msgs::PointCloud cloud;
-  cloud.set_points_size(1);
+  pcl::PointCloud<pcl::PointXYZW> cloud;
+  cloud.points.resize(1);
   cloud.points[0].x = 50;
   cloud.points[0].y = 50;
   cloud.points[0].z = MAX_Z;
@@ -233,7 +233,7 @@ TEST(costmap, testCostFunctionCorrectness){
 
   // Update with no hits. Should clear (revert to the static map
   map.resetMapOutsideWindow(0, 0, 0.0, 0.0);
-  cloud.set_points_size(0);
+  cloud.points.resize(0);
 
   p.x = 0.0;
   p.y = 0.0;
@@ -259,8 +259,8 @@ TEST(costmap, testWaveInterference){
       10.0, MAX_Z * 2, 10.0, 1, EMPTY_10_BY_10, THRESHOLD);
 
   // Lay out 3 obstacles in a line - along the diagonal, separated by a cell.
-  sensor_msgs::PointCloud cloud;
-  cloud.set_points_size(3);
+  pcl::PointCloud<pcl::PointXYZW> cloud;
+  cloud.points.resize(3);
   cloud.points[0].x = 3;
   cloud.points[0].y = 3;
   cloud.points[0].z = MAX_Z;
@@ -417,8 +417,8 @@ TEST(costmap, testRaytracing){
       10.0, MAX_Z, 10.0, 25, MAP_10_BY_10, THRESHOLD);
 
   // Add a point cloud, should not affect the map
-  sensor_msgs::PointCloud cloud;
-  cloud.set_points_size(1);
+  pcl::PointCloud<pcl::PointXYZW> cloud;
+  cloud.points.resize(1);
   cloud.points[0].x = 0;
   cloud.points[0].y = 0;
   cloud.points[0].z = MAX_Z;
@@ -536,8 +536,8 @@ TEST(costmap, testDynamicObstacles){
       10.0, MAX_Z, 10.0, 25, MAP_10_BY_10, THRESHOLD);
 
   // Add a point cloud and verify its insertion. There should be only one new one
-  sensor_msgs::PointCloud cloud;
-  cloud.set_points_size(3);
+  pcl::PointCloud<pcl::PointXYZW> cloud;
+  cloud.points.resize(3);
   cloud.points[0].x = 0;
   cloud.points[0].y = 0;
   cloud.points[1].x = 0;
@@ -582,8 +582,8 @@ TEST(costmap, testMultipleAdditions){
       10.0, MAX_Z, 10.0, 25, MAP_10_BY_10, THRESHOLD);
 
   // A point cloud with one point that falls within an existing obstacle
-  sensor_msgs::PointCloud cloud;
-  cloud.set_points_size(1);
+  pcl::PointCloud<pcl::PointXYZW> cloud;
+  cloud.points.resize(1);
   cloud.points[0].x = 7;
   cloud.points[0].y = 2;
 
@@ -619,8 +619,8 @@ TEST(costmap, testZThreshold){
       10.0, MAX_Z, 10.0, 25, MAP_10_BY_10, THRESHOLD);
 
   // A point cloud with 2 points falling in a cell with a non-lethal cost
-  sensor_msgs::PointCloud c0;
-  c0.set_points_size(2);
+  pcl::PointCloud<pcl::PointXYZW> c0;
+  c0.points.resize(2);
   c0.points[0].x = 0;
   c0.points[0].y = 5;
   c0.points[0].z = 0.4;
@@ -689,8 +689,8 @@ TEST(costmap, testInflation){
   }
 
   // Set an obstacle at the origin and observe insertions for it and its neighbors
-  sensor_msgs::PointCloud c0;
-  c0.set_points_size(1);
+  pcl::PointCloud<pcl::PointXYZW> c0;
+  c0.points.resize(1);
   c0.points[0].x = 0;
   c0.points[0].y = 0;
   c0.points[0].z = 0.4;
@@ -720,8 +720,8 @@ TEST(costmap, testInflation){
 
   // @todo Rewrite 
   // Add an obstacle at <2,0> which will inflate and refresh to of the other inflated cells
-  sensor_msgs::PointCloud c1;
-  c1.set_points_size(1);
+  pcl::PointCloud<pcl::PointXYZW> c1;
+  c1.points.resize(1);
   c1.points[0].x = 2;
   c1.points[0].y = 0;
   c1.points[0].z = 0.0;
@@ -753,8 +753,8 @@ TEST(costmap, testInflation){
 
 
   // Add an obstacle at <1, 9>. This will inflate obstacles around it
-  sensor_msgs::PointCloud c2;
-  c2.set_points_size(1);
+  pcl::PointCloud<pcl::PointXYZW> c2;
+  c2.points.resize(1);
   c2.points[0].x = 1;
   c2.points[0].y = 9;
   c2.points[0].z = 0.0;
@@ -775,8 +775,8 @@ TEST(costmap, testInflation){
   ASSERT_EQ(map.getCost(2, 9), costmap_2d::INSCRIBED_INFLATED_OBSTACLE);
 
   // Add an obstacle and verify that it over-writes its inflated status
-  sensor_msgs::PointCloud c3;
-  c3.set_points_size(1);
+  pcl::PointCloud<pcl::PointXYZW> c3;
+  c3.points.resize(1);
   c3.points[0].x = 0;
   c3.points[0].y = 9;
   c3.points[0].z = 0.0;
@@ -803,8 +803,8 @@ TEST(costmap, testInflation2){
       10.0, MAX_Z, 10.0, 25, MAP_10_BY_10, THRESHOLD);
 
   // Creat a small L-Shape all at once
-  sensor_msgs::PointCloud c0;
-  c0.set_points_size(3);
+  pcl::PointCloud<pcl::PointXYZW> c0;
+  c0.points.resize(3);
   c0.points[0].x = 1;
   c0.points[0].y = 1;
   c0.points[0].z = MAX_Z;
@@ -858,8 +858,8 @@ TEST(costmap, testInflation3){
   ASSERT_EQ(ids.size(), (unsigned int)0);
 
   // Add an obstacle at 5,5
-  sensor_msgs::PointCloud c0;
-  c0.set_points_size(1);
+  pcl::PointCloud<pcl::PointXYZW> c0;
+  c0.points.resize(1);
   c0.points[0].x = 5;
   c0.points[0].y = 5;
   c0.points[0].z = MAX_Z;
@@ -921,8 +921,8 @@ TEST(costmap, testRaytracing2){
 
   // The sensor origin will be <0,0>. So if we add an obstacle at 9,9, we would expect cells
   // <0, 0> thru <8, 8> to be traced through
-  sensor_msgs::PointCloud c0;
-  c0.set_points_size(1);
+  pcl::PointCloud<pcl::PointXYZW> c0;
+  c0.points.resize(1);
   c0.points[0].x = 9.5;
   c0.points[0].y = 9.5;
   c0.points[0].z = MAX_Z;
@@ -1000,8 +1000,8 @@ TEST(costmap, testTrickyPropagation){
 
 
   //Add a dynamic obstacle
-  sensor_msgs::PointCloud c2;
-  c2.set_points_size(3);
+  pcl::PointCloud<pcl::PointXYZW> c2;
+  c2.points.resize(3);
   //Dynamic obstacle that raytaces.
   c2.points[0].x = 7.0;
   c2.points[0].y = 8.0;
@@ -1045,8 +1045,8 @@ TEST(costmap, testTrickyPropagation){
     ASSERT_EQ(map.getCost(i / 10, i % 10), MAP_HALL_CHAR_TEST[i]);
   }
 
-  sensor_msgs::PointCloud c;
-  c.set_points_size(1);
+  pcl::PointCloud<pcl::PointXYZW> c;
+  c.points.resize(1);
   //Dynamic obstacle that raytaces the one at (3.0, 4.0).
   c.points[0].x = 4.0;
   c.points[0].y = 5.0;

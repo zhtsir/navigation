@@ -495,13 +495,13 @@ namespace costmap_2d {
 
   void Costmap2DROS::laserScanCallback(const MessageNotifier<sensor_msgs::LaserScan>::MessagePtr& message, const boost::shared_ptr<ObservationBuffer>& buffer){
     //project the laser into a point cloud
-    sensor_msgs::PointCloud cloud;
+    sensor_msgs::PointCloud2 cloud;
     cloud.header = message->header;
 
     //project the scan into a point cloud
     try
     {
-      projector_.transformLaserScanToPointCloud(message->header.frame_id, *message, cloud, tf_);
+      projector_.transformLaserScanToPointCloud(message->header.frame_id, *message, tf_, cloud);
     }
     catch (tf::TransformException &ex)
     {
@@ -509,16 +509,9 @@ namespace costmap_2d {
       projector_.projectLaser(*message, cloud);
     }
 
-    //TODO: Switch to use new laser projector when it is ready to skip PointCloud
-    sensor_msgs::PointCloud2 cloud2;
-    if(!sensor_msgs::convertPointCloudToPointCloud2(cloud, cloud2)){
-      ROS_ERROR("Failed to convert a PointCloud to a PointCloud2, dropping message");
-      return;
-    }
-
     //buffer the point cloud
     buffer->lock();
-    buffer->bufferCloud(cloud2);
+    buffer->bufferCloud(cloud);
     buffer->unlock();
   }
 
