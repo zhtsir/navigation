@@ -187,7 +187,7 @@ namespace base_local_planner {
     unsigned char cost = costmap_.getCost(x, y);
     //if the cell is in an obstacle the path is invalid
     //if(cost == LETHAL_OBSTACLE){
-    if(cost == LETHAL_OBSTACLE || cost == NO_INFORMATION){
+    if(cost == LETHAL_OBSTACLE) {
       return -1;
     }
 
