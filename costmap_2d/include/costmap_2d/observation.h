@@ -57,7 +57,7 @@ namespace costmap_2d {
      * @param obstacle_range The range out to which an observation should be able to insert obstacles
      * @param raytrace_range The range out to which an observation should be able to clear via raytracing
      */
-    Observation(geometry_msgs::Point& origin, pcl::PointCloud<pcl::PointXYZW> cloud, double obstacle_range, double raytrace_range): origin_(origin), 
+    Observation(geometry_msgs::Point& origin, pcl::PointCloud<pcl::PointXYZ> cloud, double obstacle_range, double raytrace_range): origin_(origin), 
     cloud_(cloud), obstacle_range_(obstacle_range), raytrace_range_(raytrace_range) {}
 
     /**
@@ -71,10 +71,10 @@ namespace costmap_2d {
      * @param cloud The point cloud of the observation
      * @param obstacle_range The range out to which an observation should be able to insert obstacles
      */
-    Observation(pcl::PointCloud<pcl::PointXYZW> cloud, double obstacle_range): cloud_(cloud), obstacle_range_(obstacle_range), raytrace_range_(0.0){}
+    Observation(pcl::PointCloud<pcl::PointXYZ> cloud, double obstacle_range): cloud_(cloud), obstacle_range_(obstacle_range), raytrace_range_(0.0){}
 
     geometry_msgs::Point origin_;
-    pcl::PointCloud<pcl::PointXYZW> cloud_;
+    pcl::PointCloud<pcl::PointXYZ> cloud_;
     double obstacle_range_, raytrace_range_;
   };
 

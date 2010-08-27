@@ -225,8 +225,8 @@ namespace costmap_2d {
             new tf::MessageFilter<sensor_msgs::LaserScan>(*sub, tf_, global_frame_, 50));
         filter->registerCallback(boost::bind(&Costmap2DROS::laserScanCallback, this, _1, observation_buffers_.back()));
 
-        observation_subscribers_.push_back(boost::shared_ptr<message_filters::SubscriberBase>(sub));
-        observation_notifiers_.push_back(boost::shared_ptr<tf::MessageFilterBase>(filter));
+        observation_subscribers_.push_back(sub);
+        observation_notifiers_.push_back(filter);
 
         observation_notifiers_.back()->setTolerance(ros::Duration(0.05));
       }
@@ -238,8 +238,8 @@ namespace costmap_2d {
             new tf::MessageFilter<sensor_msgs::PointCloud>(*sub, tf_, global_frame_, 50));
         filter->registerCallback(boost::bind(&Costmap2DROS::pointCloudCallback, this, _1, observation_buffers_.back()));
 
-        observation_subscribers_.push_back(boost::shared_ptr<message_filters::SubscriberBase>(sub));
-        observation_notifiers_.push_back(boost::shared_ptr<tf::MessageFilterBase>(filter));
+        observation_subscribers_.push_back(sub);
+        observation_notifiers_.push_back(filter);
       }
       else{
         boost::shared_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2> > sub(
@@ -249,8 +249,8 @@ namespace costmap_2d {
             new tf::MessageFilter<sensor_msgs::PointCloud2>(*sub, tf_, global_frame_, 50));
         filter->registerCallback(boost::bind(&Costmap2DROS::pointCloud2Callback, this, _1, observation_buffers_.back()));
 
-        observation_subscribers_.push_back(boost::shared_ptr<message_filters::SubscriberBase>(sub));
-        observation_notifiers_.push_back(boost::shared_ptr<tf::MessageFilterBase>(filter));
+        observation_subscribers_.push_back(sub);
+        observation_notifiers_.push_back(filter);
       }
 
       if(sensor_frame != ""){
