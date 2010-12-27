@@ -396,6 +396,7 @@ namespace costmap_2d {
       boost::recursive_mutex map_data_lock_;
       nav_msgs::MapMetaData map_meta_data_;
       std::vector<unsigned char> input_data_;
+      bool costmap_initialized_;
 
 
   };

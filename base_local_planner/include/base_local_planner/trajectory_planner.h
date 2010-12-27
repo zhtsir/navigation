@@ -122,7 +122,8 @@ namespace base_local_planner {
           bool dwa = false, bool heading_scoring = false, double heading_scoring_timestep = 0.1,
           bool simple_attractor = false,
           std::vector<double> y_vels = std::vector<double>(0),
-          double stop_time_buffer = 0.2);
+          double stop_time_buffer = 0.2,
+          double sim_period = 0.1);
 
       /**
        * @brief  Destructs a trajectory controller
@@ -294,6 +295,7 @@ namespace base_local_planner {
       std::vector<double> y_vels_; ///< @brief Y velocities to explore
 
       double stop_time_buffer_; ///< @brief How long before hitting something we're going to enforce that the robot stop
+      double sim_period_; ///< @brief The number of seconds to use to compute max/min vels for dwa
 
       /**
        * @brief  Compute x position based on velocity
@@ -348,9 +350,9 @@ namespace base_local_planner {
       }
 
       void getMaxSpeedToStopInTime(double time, double& vx, double& vy, double& vth){
-        vx = -0.5 * acc_lim_x_ * std::max(time, 0.0);
-        vy = -0.5 * acc_lim_y_ * std::max(time, 0.0);
-        vth = -0.5 * acc_lim_theta_ * std::max(time, 0.0);
+        vx = acc_lim_x_ * std::max(time, 0.0);
+        vy = acc_lim_y_ * std::max(time, 0.0);
+        vth = acc_lim_theta_ * std::max(time, 0.0);
       }
 
       double lineCost(int x0, int x1, int y0, int y1);

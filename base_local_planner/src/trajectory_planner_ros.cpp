@@ -108,6 +108,8 @@ namespace base_local_planner {
 
       private_nh.param("stop_time_buffer", stop_time_buffer, 0.2);
 
+      private_nh.param("latch_xy_goal_tolerance", latch_xy_goal_tolerance_, false);
+
       //Since I screwed up nicely in my documentation, I'm going to add errors
       //informing the user if they've set one of the wrong parameters
       if(private_nh.hasParam("acc_limit_x"))
@@ -120,6 +122,7 @@ namespace base_local_planner {
         ROS_ERROR("You are using acc_limit_th where you should be using acc_lim_th. Please change your configuration files appropriately. The documentation used to be wrong on this, sorry for any confusion.");
 
       private_nh.param("sim_time", sim_time, 1.0);
+      private_nh.param("sim_period", sim_period_, 0.1);
       private_nh.param("sim_granularity", sim_granularity, 0.025);
       private_nh.param("vx_samples", vx_samples, 3);
       private_nh.param("vtheta_samples", vtheta_samples, 20);
@@ -166,7 +169,7 @@ namespace base_local_planner {
           acc_lim_x_, acc_lim_y_, acc_lim_theta_, sim_time, sim_granularity, vx_samples, vtheta_samples, pdist_scale,
           gdist_scale, occdist_scale, heading_lookahead, oscillation_reset_dist, escape_reset_dist, escape_reset_theta, holonomic_robot,
           max_vel_x, min_vel_x, max_vel_th_, min_vel_th_, min_in_place_vel_th_, backup_vel,
-          dwa, heading_scoring, heading_scoring_timestep, simple_attractor, y_vels, stop_time_buffer);
+          dwa, heading_scoring, heading_scoring_timestep, simple_attractor, y_vels, stop_time_buffer, sim_period_);
 
       initialized_ = true;
     }
@@ -216,11 +219,11 @@ namespace base_local_planner {
   bool TrajectoryPlannerROS::stopWithAccLimits(const tf::Stamped<tf::Pose>& global_pose, const tf::Stamped<tf::Pose>& robot_vel, geometry_msgs::Twist& cmd_vel){
     //slow down with the maximum possible acceleration... we should really use the frequency that we're running at to determine what is feasible
     //but we'll use a tenth of a second to be consistent with the implementation of the local planner.
-    double vx = sign(robot_vel.getOrigin().x()) * std::max(0.0, (fabs(robot_vel.getOrigin().x()) - acc_lim_x_ * .1));
-    double vy = sign(robot_vel.getOrigin().y()) * std::max(0.0, (fabs(robot_vel.getOrigin().y()) - acc_lim_y_ * .1));
+    double vx = sign(robot_vel.getOrigin().x()) * std::max(0.0, (fabs(robot_vel.getOrigin().x()) - acc_lim_x_ * sim_period_));
+    double vy = sign(robot_vel.getOrigin().y()) * std::max(0.0, (fabs(robot_vel.getOrigin().y()) - acc_lim_y_ * sim_period_));
 
     double vel_yaw = tf::getYaw(robot_vel.getRotation());
-    double vth = sign(vel_yaw) * std::max(0.0, (fabs(vel_yaw) - acc_lim_theta_ * .1));
+    double vth = sign(vel_yaw) * std::max(0.0, (fabs(vel_yaw) - acc_lim_theta_ * sim_period_));
 
     //we do want to check whether or not the command is valid
     double yaw = tf::getYaw(global_pose.getRotation());
@@ -254,8 +257,8 @@ namespace base_local_planner {
         std::min(-1.0 * min_in_place_vel_th_, ang_diff));
 
     //take the acceleration limits of the robot into account
-    double max_acc_vel = fabs(vel_yaw) + acc_lim_theta_ * .1;
-    double min_acc_vel = fabs(vel_yaw) - acc_lim_theta_ * .1;
+    double max_acc_vel = fabs(vel_yaw) + acc_lim_theta_ * sim_period_;
+    double min_acc_vel = fabs(vel_yaw) - acc_lim_theta_ * sim_period_;
 
     v_theta_samp = sign(v_theta_samp) * std::min(std::max(fabs(v_theta_samp), min_acc_vel), max_acc_vel);
 
@@ -299,6 +302,9 @@ namespace base_local_planner {
     //reset the global plan
     global_plan_.clear();
     global_plan_ = orig_global_plan;
+
+    //when we get a new plan, we also want to clear any latch we may have on goal tolerances
+    xy_tolerance_latch_ = false;
 
     return true;
   }
@@ -370,7 +376,13 @@ namespace base_local_planner {
     double goal_th = yaw;
 
     //check to see if we've reached the goal position
-    if(goalPositionReached(global_pose, goal_x, goal_y, xy_goal_tolerance_)){
+    if(goalPositionReached(global_pose, goal_x, goal_y, xy_goal_tolerance_) || xy_tolerance_latch_){
+
+      //if the user wants to latch goal tolerance, if we ever reach the goal location, we'll
+      //just rotate in place
+      if(latch_xy_goal_tolerance_)
+        xy_tolerance_latch_ = true;
+
       //check to see if the goal orientation has been reached
       if(goalOrientationReached(global_pose, goal_th, yaw_goal_tolerance_)){
         //set the velocity command to zero
@@ -378,6 +390,7 @@ namespace base_local_planner {
         cmd_vel.linear.y = 0.0;
         cmd_vel.angular.z = 0.0;
         rotating_to_goal_ = false;
+        xy_tolerance_latch_ = false;
       }
       else {
         //we need to call the next two lines to make sure that the trajectory

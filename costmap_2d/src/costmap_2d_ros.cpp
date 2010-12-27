@@ -49,7 +49,7 @@ namespace costmap_2d {
   Costmap2DROS::Costmap2DROS(std::string name, tf::TransformListener& tf) : name_(name), tf_(tf), costmap_(NULL), 
                              map_update_thread_(NULL), costmap_publisher_(NULL), stop_updates_(false), 
                              initialized_(true), stopped_(false), map_update_thread_shutdown_(false), 
-                             save_debug_pgm_(false), map_initialized_(false) {
+                             save_debug_pgm_(false), map_initialized_(false), costmap_initialized_(false) {
     ros::NodeHandle private_nh("~/" + name);
     ros::NodeHandle g_nh;
 
@@ -89,6 +89,8 @@ namespace costmap_2d {
     private_nh.param("rolling_window", rolling_window_, false);
 
     double map_width_meters, map_height_meters;
+    std::string map_topic;
+    private_nh.param("map_topic", map_topic, std::string("map"));
     private_nh.param("width", map_width_meters, 10.0);
     private_nh.param("height", map_height_meters, 10.0);
     private_nh.param("resolution", map_resolution, 0.05);
@@ -100,7 +102,7 @@ namespace costmap_2d {
     if(static_map){
       //we'll subscribe to the latched topic that the map server uses
       ROS_INFO("Requesting the map...\n");
-      map_sub_ = g_nh.subscribe("map", 1, &Costmap2DROS::incomingMap, this);
+      map_sub_ = g_nh.subscribe(map_topic, 1, &Costmap2DROS::incomingMap, this);
 
       ros::Rate r(1.0);
       while(!map_initialized_ && ros::ok()){
@@ -381,6 +383,8 @@ namespace costmap_2d {
     private_nh.param("update_frequency", map_update_frequency, 5.0);
     map_update_thread_ = new boost::thread(boost::bind(&Costmap2DROS::mapUpdateLoop, this, map_update_frequency));
 
+    costmap_initialized_ = true;
+
   }
 
   double Costmap2DROS::distanceToLine(double pX, double pY, double x0, double y0, double x1, double y1){
@@ -490,6 +494,10 @@ namespace costmap_2d {
       }
       stopped_ = false;
     }
+    for (unsigned int i=0; i < observation_buffers_.size(); ++i){
+      if (observation_buffers_[i])
+        observation_buffers_[i]->resetLastUpdated();
+    } 
     stop_updates_ = false;
 
     //block until the costmap is re-initialized.. meaning one update cycle has run
@@ -707,7 +715,7 @@ namespace costmap_2d {
       initFromMap(*new_map);
       map_initialized_ = true;
     }
-    else
+    else if(costmap_initialized_)
       updateStaticMap(*new_map);
   }
 

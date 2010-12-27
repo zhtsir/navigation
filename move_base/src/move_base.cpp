@@ -52,6 +52,8 @@ namespace move_base {
     ros::NodeHandle private_nh("~");
     ros::NodeHandle nh;
 
+    recovery_trigger_ = PLANNING_R;
+
     //get some parameters that will be global to the move base node
     std::string global_planner, local_planner;
     private_nh.param("base_global_planner", global_planner, std::string("navfn/NavfnROS"));
@@ -61,6 +63,10 @@ namespace move_base {
     private_nh.param("controller_frequency", controller_frequency_, 20.0);
     private_nh.param("planner_patience", planner_patience_, 5.0);
     private_nh.param("controller_patience", controller_patience_, 15.0);
+
+    private_nh.param("oscillation_timeout", oscillation_timeout_, 0.0);
+    private_nh.param("oscillation_distance", oscillation_distance_, 0.5);
+
 
     //for comanding the base
     vel_pub_ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
@@ -87,6 +93,7 @@ namespace move_base {
 
     //create the ros wrapper for the planner's costmap... and initializer a pointer we'll use with the underlying map
     planner_costmap_ros_ = new costmap_2d::Costmap2DROS("global_costmap", tf_);
+    planner_costmap_ros_->pause();
 
     //initialize the global planner
     try {
@@ -116,6 +123,7 @@ namespace move_base {
 
     //create the ros wrapper for the controller's costmap... and initializer a pointer we'll use with the underlying map
     controller_costmap_ros_ = new costmap_2d::Costmap2DROS("local_costmap", tf_);
+    controller_costmap_ros_->pause();
 
     //create a local planner
     try {
@@ -140,6 +148,10 @@ namespace move_base {
       ROS_FATAL("Failed to create the %s planner, are you sure it is properly registered and that the containing library is built? Exception: %s", local_planner.c_str(), ex.what());
       exit(0);
     }
+
+    // Start actively updating costmaps based on sensor data
+    planner_costmap_ros_->start();
+    controller_costmap_ros_->start();
 
     //advertise a service for getting a plan
     make_plan_srv_ = private_nh.advertiseService("make_plan", &MoveBase::planService, this);
@@ -429,6 +441,11 @@ namespace move_base {
       controller_costmap_ros_->start();
     }
 
+    //we want to make sure that we reset the last time we had a valid plan and control
+    last_valid_control_ = ros::Time::now();
+    last_valid_plan_ = ros::Time::now();
+    last_oscillation_reset_ = ros::Time::now();
+
     ros::NodeHandle n;
     while(n.ok())
     {
@@ -455,6 +472,7 @@ namespace move_base {
           //make sure to reset our timeouts
           last_valid_control_ = ros::Time::now();
           last_valid_plan_ = ros::Time::now();
+          last_oscillation_reset_ = ros::Time::now();
         }
         else {
           //if we've been preempted explicitly we need to shut things down
@@ -484,6 +502,7 @@ namespace move_base {
         //make sure to reset our timeouts
         last_valid_control_ = ros::Time::now();
         last_valid_plan_ = ros::Time::now();
+        last_oscillation_reset_ = ros::Time::now();
       }
 
       //for timing that gives real time even in simulation
@@ -512,6 +531,12 @@ namespace move_base {
     return;
   }
 
+  double MoveBase::distance(const geometry_msgs::PoseStamped& p1, const geometry_msgs::PoseStamped& p2)
+  {
+    return sqrt((p1.pose.position.x - p2.pose.position.x) * (p1.pose.position.x - p2.pose.position.x)
+        + (p1.pose.position.y - p2.pose.position.y) * (p1.pose.position.y - p2.pose.position.y));
+  }
+
   bool MoveBase::executeCycle(geometry_msgs::PoseStamped& goal, std::vector<geometry_msgs::PoseStamped>& global_plan){
     //we need to be able to publish velocity commands
     geometry_msgs::Twist cmd_vel;
@@ -526,6 +551,17 @@ namespace move_base {
     move_base_msgs::MoveBaseFeedback feedback;
     feedback.base_position = current_position;
     as_->publishFeedback(feedback);
+
+    //check to see if we've moved far enough to reset our oscillation timeout
+    if(distance(current_position, oscillation_pose_) >= oscillation_distance_)
+    {
+      last_oscillation_reset_ = ros::Time::now();
+      oscillation_pose_ = current_position;
+
+      //if our last recovery was caused by oscillation, we want to reset the recovery index 
+      if(recovery_trigger_ == OSCILLATION_R)
+        recovery_index_ = 0;
+    }
 
     //check that the observation buffers for the costmap are current, we don't want to drive blind
     if(!controller_costmap_ros_->isCurrent()){
@@ -552,7 +588,8 @@ namespace move_base {
           state_ = CONTROLLING;
 
           //make sure to reset recovery_index_ since we were able to find a valid plan
-          recovery_index_ = 0;
+          if(recovery_trigger_ == PLANNING_R)
+            recovery_index_ = 0;
 
         }
         else{
@@ -563,7 +600,7 @@ namespace move_base {
             //we'll move into our obstacle clearing mode
             state_ = CLEARING;
             publishZeroVelocity();
-
+            recovery_trigger_ = PLANNING_R;
           }
 
           //we don't want to attempt to control if planning failed
@@ -582,26 +619,38 @@ namespace move_base {
           return true;
         }
 
+        //check for an oscillation condition
+        if(oscillation_timeout_ > 0.0 &&
+            last_oscillation_reset_ + ros::Duration(oscillation_timeout_) < ros::Time::now())
+        {
+          publishZeroVelocity();
+          state_ = CLEARING;
+          recovery_trigger_ = OSCILLATION_R;
+        }
+
         if(tc_->computeVelocityCommands(cmd_vel)){
           last_valid_control_ = ros::Time::now();
           //make sure that we send the velocity command to the base
           vel_pub_.publish(cmd_vel);
+          if(recovery_trigger_ == CONTROLLING_R)
+            recovery_index_ = 0;
         }
         else {
           ros::Time attempt_end = last_valid_control_ + ros::Duration(controller_patience_);
 
           //check if we've tried to find a valid control for longer than our time limit
           if(ros::Time::now() > attempt_end){
-            ROS_ERROR("Aborting because of failure to find a valid control for %.2f seconds", controller_patience_);
-            resetState();
-            as_->setAborted(move_base_msgs::MoveBaseResult(), "Failed to find a valid control");
-            return true;
+            //we'll move into our obstacle clearing mode
+            publishZeroVelocity();
+            state_ = CLEARING;
+            recovery_trigger_ = CONTROLLING_R;
           }
-
-          //otherwise, if we can't find a valid control, we'll go back to planning
-          last_valid_plan_ = ros::Time::now();
-          state_ = PLANNING;
-          publishZeroVelocity();
+          else{
+            //otherwise, if we can't find a valid control, we'll go back to planning
+            last_valid_plan_ = ros::Time::now();
+            state_ = PLANNING;
+            publishZeroVelocity();
+          }
         }
 
         break;
@@ -613,6 +662,9 @@ namespace move_base {
         if(recovery_behavior_enabled_ && recovery_index_ < recovery_behaviors_.size()){
           recovery_behaviors_[recovery_index_]->runBehavior();
 
+          //we at least want to give the robot some time to stop oscillating after executing the behavior
+          last_oscillation_reset_ = ros::Time::now();
+
           //we'll check if the recovery behavior actually worked
           state_ = PLANNING;
 
@@ -620,9 +672,19 @@ namespace move_base {
           recovery_index_++;
         }
         else{
-          ROS_ERROR("Aborting because a valid plan could not be found. Even after executing all recovery behaviors");
+          if(recovery_trigger_ == CONTROLLING_R){
+            ROS_ERROR("Aborting because a valid control could not be found. Even after executing all recovery behaviors");
+            as_->setAborted(move_base_msgs::MoveBaseResult(), "Failed to find a valid control. Even after executing recovery behaviors.");
+          }
+          else if(recovery_trigger_ == PLANNING_R){
+            ROS_ERROR("Aborting because a valid plan could not be found. Even after executing all recovery behaviors");
+            as_->setAborted(move_base_msgs::MoveBaseResult(), "Failed to find a valid plan. Even after executing recovery behaviors.");
+          }
+          else if(recovery_trigger_ == OSCILLATION_R){
+            ROS_ERROR("Aborting because the robot appears to be oscillating over and over. Even after executing all recovery behaviors");
+            as_->setAborted(move_base_msgs::MoveBaseResult(), "Robot is oscillating. Even after executing recovery behaviors.");
+          }
           resetState();
-          as_->setAborted(move_base_msgs::MoveBaseResult(), "Failed to find a valid plan. Even after executing recovery behaviors.");
           return true;
         }
         break;
@@ -758,6 +820,7 @@ namespace move_base {
   void MoveBase::resetState(){
     state_ = PLANNING;
     recovery_index_ = 0;
+    recovery_trigger_ = PLANNING_R;
     publishZeroVelocity();
 
     //if we shutdown our costmaps when we're deactivated... we'll do that now

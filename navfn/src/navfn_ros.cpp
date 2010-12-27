@@ -66,6 +66,7 @@ namespace navfn {
       private_nh.param("allow_unknown", allow_unknown_, true);
       private_nh.param("planner_window_x", planner_window_x_, 0.0);
       private_nh.param("planner_window_y", planner_window_y_, 0.0);
+      private_nh.param("default_tolerance", default_tolerance_, 0.0);
         
       double costmap_pub_freq;
       private_nh.param("planner_costmap_publish_frequency", costmap_pub_freq, 0.0);
@@ -94,12 +95,34 @@ namespace navfn {
   }
 
   bool NavfnROS::validPointPotential(const geometry_msgs::Point& world_point){
+    return validPointPotential(world_point, default_tolerance_);
+  }
+
+  bool NavfnROS::validPointPotential(const geometry_msgs::Point& world_point, double tolerance){
     if(!initialized_){
       ROS_ERROR("This planner has not been initialized yet, but it is being used, please call initialize() before use");
       return false;
     }
 
-    return getPointPotential(world_point) < POT_HIGH;
+    double resolution = costmap_ros_->getResolution();
+    geometry_msgs::Point p;
+    p = world_point;
+
+    p.y = world_point.y - tolerance;
+
+    while(p.y <= world_point.y + tolerance){
+      p.x = world_point.x - tolerance;
+      while(p.x <= world_point.x + tolerance){
+        double potential = getPointPotential(p);
+        if(potential < POT_HIGH){
+          return true;
+        }
+        p.x += resolution;
+      }
+      p.y += resolution;
+    }
+
+    return false;
   }
 
   double NavfnROS::getPointPotential(const geometry_msgs::Point& world_point){
@@ -208,9 +231,13 @@ namespace navfn {
     wy = costmap_.getOriginY() + my * costmap_.getResolution();
   }
 
-
   bool NavfnROS::makePlan(const geometry_msgs::PoseStamped& start, 
       const geometry_msgs::PoseStamped& goal, std::vector<geometry_msgs::PoseStamped>& plan){
+    return makePlan(start, goal, default_tolerance_, plan);
+  }
+
+  bool NavfnROS::makePlan(const geometry_msgs::PoseStamped& start, 
+      const geometry_msgs::PoseStamped& goal, double tolerance, std::vector<geometry_msgs::PoseStamped>& plan){
     boost::mutex::scoped_lock lock(mutex_);
     if(!initialized_){
       ROS_ERROR("This planner has not been initialized yet, but it is being used, please call initialize() before use");
@@ -264,56 +291,65 @@ namespace navfn {
     wy = goal.pose.position.y;
 
     if(!costmap_.worldToMap(wx, wy, mx, my)){
-      ROS_WARN("The goal sent to the navfn planner is off the global costmap. Planning will always fail to this goal.");
-      return false;
+      if(tolerance <= 0.0){
+        ROS_WARN("The goal sent to the navfn planner is off the global costmap. Planning will always fail to this goal.");
+        return false;
+      }
+      mx = 0;
+      my = 0;
     }
 
     int map_goal[2];
     map_goal[0] = mx;
     map_goal[1] = my;
 
-    planner_->setStart(map_start);
-    planner_->setGoal(map_goal);
+    planner_->setStart(map_goal);
+    planner_->setGoal(map_start);
 
     //bool success = planner_->calcNavFnAstar();
-    bool success = planner_->calcNavFnDijkstra(true);
+    planner_->calcNavFnDijkstra(true);
 
-    if(success){
-      //extract the plan
-      float *x = planner_->getPathX();
-      float *y = planner_->getPathY();
-      int len = planner_->getPathLen();
-      ros::Time plan_time = ros::Time::now();
-      for(int i = 0; i < len; ++i){
-        //convert the plan to world coordinates
-        double world_x, world_y;
-        mapToWorld(x[i], y[i], world_x, world_y);
+    double resolution = costmap_ros_->getResolution();
+    geometry_msgs::PoseStamped p, best_pose;
+    p = goal;
 
-        geometry_msgs::PoseStamped pose;
-        pose.header.stamp = plan_time;
-        pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-        pose.pose.position.x = world_x;
-        pose.pose.position.y = world_y;
-        pose.pose.position.z = 0.0;
-        pose.pose.orientation.x = 0.0;
-        pose.pose.orientation.y = 0.0;
-        pose.pose.orientation.z = 0.0;
-        pose.pose.orientation.w = 1.0;
-        plan.push_back(pose);
+    bool found_legal = false;
+    double best_sdist = DBL_MAX;
+
+    p.pose.position.y = goal.pose.position.y - tolerance;
+
+    while(p.pose.position.y <= goal.pose.position.y + tolerance){
+      p.pose.position.x = goal.pose.position.x - tolerance;
+      while(p.pose.position.x <= goal.pose.position.x + tolerance){
+        double potential = getPointPotential(p.pose.position);
+        double sdist = sq_distance(p, goal);
+        if(potential < POT_HIGH && sdist < best_sdist){
+          best_sdist = sdist;
+          best_pose = p;
+          found_legal = true;
+        }
+        p.pose.position.x += resolution;
       }
-      
-      //also make sure that we push the goal pose onto the end of the plan if its not empty
-      if(!plan.empty()){
+      p.pose.position.y += resolution;
+    }
+
+    if(found_legal){
+      //extract the plan
+      if(getPlanFromPotential(best_pose, plan)){
         //make sure the goal we push on has the same timestamp as the rest of the plan
-        geometry_msgs::PoseStamped goal_copy = goal;
-        goal_copy.header.stamp = plan_time;
+        geometry_msgs::PoseStamped goal_copy = best_pose;
+        goal_copy.header.stamp = ros::Time::now();
         plan.push_back(goal_copy);
+      }
+      else{
+        ROS_ERROR("Failed to get a plan from potential when a legal potential was found. This shouldn't happen.");
       }
     }
 
     //publish the plan for visualization purposes
     publishPlan(plan, 0.0, 1.0, 0.0, 0.0);
-    return success;
+
+    return !plan.empty();
   }
 
   void NavfnROS::publishPlan(const std::vector<geometry_msgs::PoseStamped>& path, double r, double g, double b, double a){
@@ -322,15 +358,15 @@ namespace navfn {
       return;
     }
 
-    //given an empty path we won't do anything
-    if(path.empty())
-      return;
-
     //create a message for the plan 
     nav_msgs::Path gui_path;
     gui_path.poses.resize(path.size());
-    gui_path.header.frame_id = path[0].header.frame_id;
-    gui_path.header.stamp = path[0].header.stamp;
+
+    if(!path.empty())
+    {
+      gui_path.header.frame_id = path[0].header.frame_id;
+      gui_path.header.stamp = path[0].header.stamp;
+    }
 
     // Extract the plan in world co-ordinates, we assume the path is all in the same frame
     for(unsigned int i=0; i < path.size(); i++){
@@ -380,7 +416,7 @@ namespace navfn {
     int len = planner_->getPathLen();
     ros::Time plan_time = ros::Time::now();
     std::string global_frame = costmap_ros_->getGlobalFrameID();
-    for(int i = 0; i < len; ++i){
+    for(int i = len - 1; i >= 0; --i){
       //convert the plan to world coordinates
       double world_x, world_y;
       mapToWorld(x[i], y[i], world_x, world_y);

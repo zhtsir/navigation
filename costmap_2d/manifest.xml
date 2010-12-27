@@ -22,7 +22,7 @@
 <depend package="voxel_grid" />
 <depend package="nav_msgs" />
 <depend package="visualization_msgs" />
-<depend package="rosrecord" />
+<depend package="rosbag" />
 <depend package="map_server" />
 <depend package="pcl" />
 <depend package="pcl_tf" />
