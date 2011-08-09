@@ -429,6 +429,7 @@ namespace costmap_2d {
       BOOST_FOREACH(geometry_msgs::Point p, footprint_spec_) {
         if(first) {
           oss << "[[" << p.x << "," << p.y << "]";
+          first = false;
         }
         else {
           oss << ",[" << p.x << "," << p.y << "]";
@@ -436,6 +437,7 @@ namespace costmap_2d {
       }
       oss << "]";
       config.footprint = oss.str();
+      l_foot_ = config.footprint;
 
       setup_ = true;
     }
@@ -460,20 +462,35 @@ namespace costmap_2d {
       //parse the input string into points
       vector<geometry_msgs::Point> footprint_spec;
       bool circular = false;
+      bool valid_foot = true;
 
       if(points.size() >= 5) {
         BOOST_FOREACH(string t, tokens) {
           if (t != ",") {
             boost::char_separator<char> pt_sep(", ");
             boost::tokenizer<boost::char_separator<char> > pt_tokens(t, pt_sep);
+            std::vector<string> point(pt_tokens.begin(), pt_tokens.end());
+
+            if(point.size() != 2) {
+              valid_foot = false;
+              break;
+            }
 
             vector<double>tmp_pt;
-            BOOST_FOREACH(string p, pt_tokens) {
+            BOOST_FOREACH(string p, point) {
               istringstream iss(p);
               double temp;
-              iss >> temp;
-              tmp_pt.push_back(temp);
+              if(iss >> temp) {
+                tmp_pt.push_back(temp);
+              }
+              else {
+                valid_foot = false;
+                break;
+              }
             }
+            if(!valid_foot)
+              break;
+
             geometry_msgs::Point pt;
             pt.x = tmp_pt[0];
             pt.y = tmp_pt[1];
@@ -481,16 +498,25 @@ namespace costmap_2d {
             footprint_spec.push_back(pt);
           }
         }
-        footprint_spec_ = footprint_spec;
+        if(valid_foot) {
+          footprint_spec_ = footprint_spec;
+        }
       }
       //clear the footprint for a circular robot
-      else if(config.robot_radius > 0.0) {
+      else if(footprint_string == "" && config.robot_radius > 0.0) {
         footprint_spec_ = vector<geometry_msgs::Point>();
         circular = true;
       }
-      else if(footprint_string != l_foot_ && !config.robot_radius > 0.0) {
+      else if(footprint_string != l_foot_) {
         ROS_ERROR("You must specify at least three points for the robot footprint, reverting to previous footprint");
+        config.footprint = l_foot_;
       }
+      
+      if(!valid_foot) {
+        ROS_FATAL("The footprint must be specified as a list of at least three points, you specified %s", footprint_string.c_str());
+        config.footprint = l_foot_;
+      }
+
       double inscribed_radius, circumscribed_radius;
       inscribed_radius = config.robot_radius;
       circumscribed_radius = inscribed_radius;
@@ -613,9 +639,11 @@ namespace costmap_2d {
           costmap_ = new_map;
         }
       }
+
       else if(user_params && config.static_map) {
         ROS_WARN("You have set map parameters but have selected to use the static map, you paramters will be overidden");
       }
+
       // Change map type and regenerate the new map
       else if(config.map_type == "voxel" && config.map_type != l_map_type_) {
         //copy the current costmap into a voxel costmap
@@ -715,7 +743,7 @@ namespace costmap_2d {
       node.getParam(footprint_param, footprint_list);
       //make sure we have a list of lists
       if(!(footprint_list.getType() == XmlRpc::XmlRpcValue::TypeArray && footprint_list.size() > 2)){
-        ROS_FATAL("The footprint must be specified as list of lists on the parameter server with at least 3 points eg: [[x1, y1], [x2, y2], ..., [xn, yn]]");
+        ROS_FATAL("The footprint must be specified as list of lists on the parameter server, %s was specified as %s", footprint_param.c_str(), std::string(footprint_list).c_str());
         throw std::runtime_error("The footprint must be specified as list of lists on the parameter server with at least 3 points eg: [[x1, y1], [x2, y2], ..., [xn, yn]]");
       }
       for(int i = 0; i < footprint_list.size(); ++i){
