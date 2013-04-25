@@ -44,8 +44,8 @@
 #include <costmap_2d/GenericPluginConfig.h>
 #include <dynamic_reconfigure/server.h>
 #include <nav_msgs/OccupancyGrid.h>
-#include <geometry_msgs/Polygon.h>
 #include <geometry_msgs/PolygonStamped.h>
+#include <costmap_2d/polygon_stamped_subscriber.h>
 
 namespace common_costmap_plugins {
 class FootprintCostmapPlugin : public costmap_2d::CostmapPluginROS {
@@ -66,7 +66,7 @@ class FootprintCostmapPlugin : public costmap_2d::CostmapPluginROS {
 
     private:
         void footprint_cb(const geometry_msgs::Polygon& footprint);
-        ros::Subscriber footprint_sub_;
+        costmap_2d::PolygonStampedSubscriber* footprint_sub_;
         bool got_footprint_;
         geometry_msgs::Polygon footprint_spec_;
         geometry_msgs::PolygonStamped footprint_;

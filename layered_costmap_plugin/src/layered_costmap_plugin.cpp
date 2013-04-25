@@ -18,7 +18,8 @@ namespace layered_costmap_plugin
 
         global_frame_ = costmap->getGlobalFrameID();
         
-        sub_layered_costmap_ = new costmap_2d::LayeredCostmap(global_frame_, costmap->isRolling(), costmap->getCostmap()->getDefaultValue());
+        sub_layered_costmap_ = new costmap_2d::LayeredCostmap(global_frame_, costmap->getRobotBaseFrameID(),
+                                                              costmap->isRolling(), costmap->getCostmap()->getDefaultValue());
         
         if (nh.hasParam("plugins")) {
             XmlRpc::XmlRpcValue my_list;

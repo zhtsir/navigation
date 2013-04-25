@@ -83,7 +83,7 @@ Costmap2DROS::Costmap2DROS(std::string name, tf::TransformListener& tf) :
     private_nh.param("rolling_window", rolling_window, false);
     private_nh.param("track_unknown_space", track_unknown_space, false);
 
-    layered_costmap_ = new LayeredCostmap(global_frame_, rolling_window, track_unknown_space);
+    layered_costmap_ = new LayeredCostmap(global_frame_, robot_base_frame_, rolling_window, track_unknown_space);
 
     if (private_nh.hasParam("plugins")) {
         XmlRpc::XmlRpcValue my_list;

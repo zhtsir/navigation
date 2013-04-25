@@ -22,6 +22,7 @@ rosbuild_add_library(costmap_2d
   src/costmap_2d_publisher.cpp
   src/costmap_math.cpp
   src/footprint.cpp
+  src/polygon_stamped_subscriber.cpp
 )
 target_link_libraries(costmap_2d ${PCL_LIBRARIES})
 #rosbuild_link_boost(costmap_2d thread)

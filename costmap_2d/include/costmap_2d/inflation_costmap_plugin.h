@@ -44,6 +44,11 @@
 #include <dynamic_reconfigure/server.h>
 #include <queue>
 
+namespace costmap_2d
+{
+class PolygonStampedSubscriber;
+}
+
 namespace common_costmap_plugins {
 /**
  * @class CellData
@@ -156,7 +161,7 @@ class InflationCostmapPlugin : public costmap_2d::CostmapPluginROS {
         void reconfigureCB(costmap_2d::InflationPluginConfig &config, uint32_t level);
 
         void footprint_cb(const geometry_msgs::Polygon& footprint);
-        ros::Subscriber footprint_sub_;
+        costmap_2d::PolygonStampedSubscriber* footprint_sub_;
         bool got_footprint_;
 
 };

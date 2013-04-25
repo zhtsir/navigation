@@ -48,6 +48,9 @@ RobotFootprintManager::RobotFootprintManager( ros::NodeHandle node, std::string 
     node.param(padding_param, padding, 0.0);
   }
 
+  std::string footprint_frame = "base_link";
+  node.getParam( "footprint_frame", footprint_frame );
+
   //grab the footprint from the parameter server if possible
   XmlRpc::XmlRpcValue footprint_value;
   std::vector<std::string> footstring_list;
@@ -113,10 +116,10 @@ RobotFootprintManager::RobotFootprintManager( ros::NodeHandle node, std::string 
       pt.x += sign0(pt.x) * padding;
       pt.y += sign0(pt.y) * padding;
 
-      footprint.points.push_back(pt);
+      footprint.polygon.points.push_back(pt);
     }
 
-    if (!valid_foot || footprint.points.size() < 3) {
+    if (!valid_foot || footprint.polygon.points.size() < 3) {
       ROS_FATAL(
         "This footprint is not valid it must be specified as a list of lists with at least 3 points, you specified %s",
         footprint_string.c_str());
@@ -162,13 +165,13 @@ RobotFootprintManager::RobotFootprintManager( ros::NodeHandle node, std::string 
       pt.x += sign0(pt.x) * padding;
       pt.y += sign0(pt.y) * padding;
 
-      footprint.points.push_back(pt);
+      footprint.polygon.points.push_back(pt);
     }
 
     node.deleteParam(footprint_param);
     std::ostringstream oss;
     bool first = true;
-    BOOST_FOREACH(geometry_msgs::Point32 p, footprint.points) {
+    BOOST_FOREACH(geometry_msgs::Point32 p, footprint.polygon.points) {
       if (first) {
         oss << "[[" << p.x << "," << p.y << "]";
         first = false;
@@ -184,7 +187,10 @@ RobotFootprintManager::RobotFootprintManager( ros::NodeHandle node, std::string 
 
   std::string full_topic = node.resolveName("footprint");
 
-  publisher = node.advertise<geometry_msgs::Polygon>(full_topic, 1, true);
+  footprint.header.stamp = ros::Time::now();
+  footprint.header.frame_id = footprint_frame;
+
+  publisher = node.advertise<geometry_msgs::PolygonStamped>(full_topic, 1, true);
   publisher.publish(footprint);
   node.setParam("footprint_topic", full_topic);
 }

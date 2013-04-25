@@ -59,7 +59,7 @@ class LayeredCostmap {
         /**
          * @brief  Constructor for a costmap
          */
-        LayeredCostmap(std::string global_frame, bool rolling_window, bool track_unknown);
+        LayeredCostmap(std::string global_frame, std::string robot_base_frame, bool rolling_window, bool track_unknown);
 
         /**
          * @brief  Destructor
@@ -74,6 +74,10 @@ class LayeredCostmap {
 
         std::string getGlobalFrameID() const {
             return global_frame_;
+        }
+
+        std::string getRobotBaseFrameID() const {
+            return robot_base_frame_;
         }
 
         void resizeMap(unsigned int size_x, unsigned int size_y, double resolution, double origin_x, double origin_y,
@@ -120,6 +124,7 @@ class LayeredCostmap {
 
         Costmap2D costmap_;
         std::string global_frame_;
+        std::string robot_base_frame_;
 
         bool rolling_window_;  /// < @brief Whether or not the costmap should roll with the robot
 

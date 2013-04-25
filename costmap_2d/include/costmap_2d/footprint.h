@@ -39,7 +39,7 @@
 #define _FOOTPRINT_HELPER_H
 
 #include <ros/ros.h>
-#include <geometry_msgs/Polygon.h>
+#include <geometry_msgs/PolygonStamped.h>
 
 namespace costmap_2d
 {
@@ -55,7 +55,7 @@ public:
 
 private:
   ros::Publisher publisher;
-  geometry_msgs::Polygon footprint;
+  geometry_msgs::PolygonStamped footprint;
 };
 
 } // end namespace costmap_2d
