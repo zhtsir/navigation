@@ -85,6 +85,14 @@ public:
   }
 
 private:
+  /** @brief Handle a new connection to the full-costmap topic by
+   * sending it the latest costmap. */
+  void onConnect( const ros::SingleSubscriberPublisher& pub );
+
+  /** @brief Update the grid_ message member with current data from
+   * the costmap. */
+  void updateGrid();
+
   ros::NodeHandle* node;
   Costmap2D* costmap_;
   std::string global_frame_;
