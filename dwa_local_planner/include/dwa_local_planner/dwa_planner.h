@@ -45,7 +45,6 @@
 
 //for creating a local cost grid
 #include <base_local_planner/map_grid_visualizer.h>
-#include <pcl_ros/publisher.h>
 
 //for obstacle data access
 #include <costmap_2d/costmap_2d.h>
@@ -158,8 +157,9 @@ namespace dwa_local_planner {
       std::vector<geometry_msgs::PoseStamped> global_plan_;
 
       boost::mutex configuration_mutex_;
-      pcl::PointCloud<base_local_planner::MapGridCostPoint>* traj_cloud_;
-      pcl_ros::Publisher<base_local_planner::MapGridCostPoint> traj_cloud_pub_;
+      sensor_msgs::PointCloud2* traj_cloud_;
+      boost::shared_ptr<sensor_msgs::PointCloud2Modifier> traj_cloud_modifier_;
+      ros::Publisher traj_cloud_pub_;
       bool publish_cost_grid_pc_; ///< @brief Whether or not to build and publish a PointCloud
       bool publish_traj_pc_;
 

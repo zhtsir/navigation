@@ -37,23 +37,22 @@
 #ifndef POTARR_POINT_H_
 #define POTARR_POINT_H_
 
-#include <pcl/register_point_struct.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
 
 namespace navfn {
-    struct PotarrPoint {
-        float x;
-        float y;
-        float z;
-        float pot_value;
-    };
+  inline
+  void createPotarrPointCloud(boost::shared_ptr<sensor_msgs::PointCloud2>& cloud,
+                                   boost::shared_ptr<sensor_msgs::PointCloud2Modifier>& modifier)
+  {
+    if (!cloud)
+      cloud.reset(new sensor_msgs::PointCloud2());
+    modifier.reset(new sensor_msgs::PointCloud2Modifier(*cloud));
+    modifier->setPointCloud2Fields(4, "x", 1, sensor_msgs::PointField::FLOAT32,
+                                   "y", 1, sensor_msgs::PointField::FLOAT32,
+                                   "z", 1, sensor_msgs::PointField::FLOAT32,
+                                   "pot_value", 1, sensor_msgs::PointField::FLOAT32);
+  };
 }
-
-POINT_CLOUD_REGISTER_POINT_STRUCT(
-        navfn::PotarrPoint,
-        (float, x, x)
-        (float, y, y)
-        (float, z, z)
-        (float, pot_value, pot_value));
 
 #endif
 

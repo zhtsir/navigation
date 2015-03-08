@@ -10,18 +10,15 @@ find_package(catkin REQUIRED
             nav_core
             nav_msgs
             pluginlib
-            pcl_conversions
             roscpp
             tf2_ros
         )
 
 find_package(Eigen REQUIRED)
-find_package(PCL REQUIRED)
 include_directories(
     include
     ${catkin_INCLUDE_DIRS}
     ${EIGEN_INCLUDE_DIRS}
-    ${PCL_INCLUDE_DIRS}
     )
 add_definitions(${EIGEN_DEFINITIONS})
 

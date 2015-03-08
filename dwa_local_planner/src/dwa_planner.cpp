@@ -46,8 +46,6 @@
 
 #include <ros/ros.h>
 
-#include <pcl_conversions/pcl_conversions.h>
-
 inline double getYaw(const geometry_msgs::PoseStamped& pose) {
   double yaw, _pitch, _roll;
   tf2::Matrix3x3(tf2::Quaternion(pose.pose.orientation.x, pose.pose.orientation.y,
@@ -164,9 +162,11 @@ namespace dwa_local_planner {
     std::string frame_id;
     private_nh.param("global_frame_id", frame_id, std::string("odom"));
 
-    traj_cloud_ = new pcl::PointCloud<base_local_planner::MapGridCostPoint>;
+    traj_cloud_ = new sensor_msgs::PointCloud2;
     traj_cloud_->header.frame_id = frame_id;
-    traj_cloud_pub_.advertise(private_nh, "trajectory_cloud", 1);
+    boost::shared_ptr<sensor_msgs::PointCloud2> cloud(traj_cloud_);
+    base_local_planner::createMapGridCostPointCloud(cloud, traj_cloud_modifier_);
+    traj_cloud_pub_ = private_nh.advertise<sensor_msgs::PointCloud2>("trajectory_cloud", 1);
     private_nh.param("publish_traj_pc", publish_traj_pc_, false);
 
     // set up all the cost functions that will be applied in order
@@ -327,14 +327,15 @@ namespace dwa_local_planner {
 
     if(publish_traj_pc_)
     {
-        base_local_planner::MapGridCostPoint pt;
-        traj_cloud_->points.clear();
-        traj_cloud_->width = 0;
-        traj_cloud_->height = 0;
-        std_msgs::Header header;
-        pcl_conversions::fromPCL(traj_cloud_->header, header);
-        header.stamp = ros::Time::now();
-        traj_cloud_->header = pcl_conversions::toPCL(header);
+        traj_cloud_->height = 1;
+        traj_cloud_->header.stamp = ros::Time::now();
+        size_t valid_point_nbr = 0;
+        traj_cloud_modifier_->resize(all_explored.size());
+        sensor_msgs::PointCloud2Iterator<float> iter_x(*traj_cloud_, "x");
+        sensor_msgs::PointCloud2Iterator<float> iter_y(*traj_cloud_, "y");
+        sensor_msgs::PointCloud2Iterator<float> iter_z(*traj_cloud_, "z");
+        sensor_msgs::PointCloud2Iterator<float> iter_path_cost(*traj_cloud_, "path_cost");
+        sensor_msgs::PointCloud2Iterator<float> iter_total_cost(*traj_cloud_, "total_cost");
         for(std::vector<base_local_planner::Trajectory>::iterator t=all_explored.begin(); t != all_explored.end(); ++t)
         {
             if(t->cost_<0)
@@ -343,14 +344,20 @@ namespace dwa_local_planner {
             for(unsigned int i = 0; i < t->getPointsSize(); ++i) {
                 double p_x, p_y, p_th;
                 t->getPoint(i, p_x, p_y, p_th);
-                pt.x=p_x;
-                pt.y=p_y;
-                pt.z=0;
-                pt.path_cost=p_th;
-                pt.total_cost=t->cost_;
-                traj_cloud_->push_back(pt);
+                *iter_x = p_x;
+                *iter_y = p_y;
+                *iter_z = 0;
+                *iter_path_cost=p_th;
+                *iter_total_cost=t->cost_;
+                ++iter_x;
+                ++iter_y;
+                ++iter_z;
+                ++iter_path_cost;
+                ++iter_total_cost;
+                ++valid_point_nbr;
             }
         }
+        traj_cloud_modifier_->resize(valid_point_nbr);
         traj_cloud_pub_.publish(*traj_cloud_);
     }
 

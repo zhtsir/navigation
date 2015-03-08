@@ -34,27 +34,24 @@
 #ifndef MAP_GRID_COST_POINT_H_
 #define MAP_GRID_COST_POINT_H_
 
-#include <pcl/register_point_struct.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
 
 namespace base_local_planner {
-    struct MapGridCostPoint {
-        float x;
-        float y;
-        float z;
-        float path_cost;
-        float goal_cost;
-        float occ_cost;
-        float total_cost;
-    };
+  inline
+  void createMapGridCostPointCloud(boost::shared_ptr<sensor_msgs::PointCloud2>& cloud,
+                                   boost::shared_ptr<sensor_msgs::PointCloud2Modifier>& modifier)
+  {
+    if (!cloud)
+      cloud.reset(new sensor_msgs::PointCloud2());
+    modifier.reset(new sensor_msgs::PointCloud2Modifier(*cloud));
+    modifier->setPointCloud2Fields(7, "x", 1, sensor_msgs::PointField::FLOAT32,
+                                   "y", 1, sensor_msgs::PointField::FLOAT32,
+                                   "z", 1, sensor_msgs::PointField::FLOAT32,
+                                   "path_cost", 1, sensor_msgs::PointField::FLOAT32,
+                                   "goal_cost", 1, sensor_msgs::PointField::FLOAT32,
+                                   "occ_cost", 1, sensor_msgs::PointField::FLOAT32,
+                                   "total_cost", 1, sensor_msgs::PointField::FLOAT32);
+  };
 }
 
-POINT_CLOUD_REGISTER_POINT_STRUCT(
-        base_local_planner::MapGridCostPoint,
-        (float, x, x)
-        (float, y, y)
-        (float, z, z)
-        (float, path_cost, path_cost)
-        (float, goal_cost, goal_cost)
-        (float, occ_cost, occ_cost)
-        (float, total_cost, total_cost));
 #endif

@@ -35,8 +35,6 @@
 #include <base_local_planner/map_cell.h>
 #include <vector>
 
-#include <pcl_conversions/pcl_conversions.h>
-
 namespace base_local_planner {
   MapGridVisualizer::MapGridVisualizer() {}
 
@@ -47,9 +45,13 @@ namespace base_local_planner {
 
     ns_nh_ = ros::NodeHandle("~/" + name_);
 
-    cost_cloud_ = new pcl::PointCloud<MapGridCostPoint>;
+    cost_cloud_ = new sensor_msgs::PointCloud2;
+
+    boost::shared_ptr<sensor_msgs::PointCloud2> cloud(cost_cloud_);
+    createMapGridCostPointCloud(cloud, cost_cloud_modifier_);
+
     cost_cloud_->header.frame_id = frame_id;
-    pub_.advertise(ns_nh_, "cost_cloud", 1);
+    pub_ = ns_nh_.advertise<sensor_msgs::PointCloud2>("cost_cloud", 1);
   }
 
   void MapGridVisualizer::publishCostCloud(const costmap_2d::Costmap2D* costmap_p_) {
@@ -57,27 +59,40 @@ namespace base_local_planner {
     unsigned int y_size = costmap_p_->getSizeInCellsY();
     double z_coord = 0.0;
     double x_coord, y_coord;
-    MapGridCostPoint pt;
-    cost_cloud_->points.clear();
-    std_msgs::Header header = pcl_conversions::fromPCL(cost_cloud_->header);
-    header.stamp = ros::Time::now();
-    cost_cloud_->header = pcl_conversions::toPCL(header);
+    cost_cloud_->header.stamp = ros::Time::now();
     float path_cost, goal_cost, occ_cost, total_cost;
+    size_t valid_point_nbr = 0;
+    cost_cloud_modifier_->resize(x_size*y_size);
+    sensor_msgs::PointCloud2Iterator<float> iter_x(*cost_cloud_, "x");
+    sensor_msgs::PointCloud2Iterator<float> iter_y(*cost_cloud_, "y");
+    sensor_msgs::PointCloud2Iterator<float> iter_z(*cost_cloud_, "z");
+    sensor_msgs::PointCloud2Iterator<float> iter_path_cost(*cost_cloud_, "path_cost");
+    sensor_msgs::PointCloud2Iterator<float> iter_goal_cost(*cost_cloud_, "goal_cost");
+    sensor_msgs::PointCloud2Iterator<float> iter_occ_cost(*cost_cloud_, "occ_cost");
+    sensor_msgs::PointCloud2Iterator<float> iter_total_cost(*cost_cloud_, "total_cost");
     for (unsigned int cx = 0; cx < x_size; cx++) {
       for (unsigned int cy = 0; cy < y_size; cy++) {
         costmap_p_->mapToWorld(cx, cy, x_coord, y_coord);
         if (cost_function_(cx, cy, path_cost, goal_cost, occ_cost, total_cost)) {
-          pt.x = x_coord;
-          pt.y = y_coord;
-          pt.z = z_coord;
-          pt.path_cost = path_cost;
-          pt.goal_cost = goal_cost;
-          pt.occ_cost = occ_cost;
-          pt.total_cost = total_cost;
-          cost_cloud_->push_back(pt);
+          *iter_x = x_coord;
+          *iter_y = y_coord;
+          *iter_z = z_coord;
+          *iter_path_cost = path_cost;
+          *iter_goal_cost = goal_cost;
+          *iter_occ_cost = occ_cost;
+          *iter_total_cost = total_cost;
+          ++iter_x;
+          ++iter_y;
+          ++iter_z;
+          ++iter_path_cost;
+          ++iter_goal_cost;
+          ++iter_occ_cost;
+          ++iter_total_cost;
+          ++valid_point_nbr;
         }
       }
     }
+    cost_cloud_modifier_->resize(valid_point_nbr);
     pub_.publish(*cost_cloud_);
     ROS_DEBUG("Cost PointCloud published");
   }

@@ -14,14 +14,12 @@ find_package(catkin REQUIRED
 
 
 find_package(Eigen REQUIRED)
-find_package(PCL REQUIRED)
 find_package(Boost REQUIRED COMPONENTS thread)
 include_directories(
     include
     ${catkin_INCLUDE_DIRS}
     SYSTEM
         ${EIGEN_INCLUDE_DIRS}
-        ${PCL_INCLUDE_DIRS}
 )
 add_definitions(${EIGEN_DEFINITIONS})
 
